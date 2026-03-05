@@ -41,6 +41,10 @@
         <span class="api-dot disconnected"></span>
         <span class="api-label">API 미연결</span>
       </div>
+      <div class="nav-section-title">🔥 실시간 인기 키워드</div>
+      <div id="trendingSection" class="trending-section">
+        <p class="empty-state">API 연결 후 표시됩니다</p>
+      </div>
       <div class="nav-section-title">최근 검색</div>
       <ul id="recentSearches" class="recent-list">
         <li class="empty-state">검색 기록 없음</li>
@@ -91,8 +95,15 @@
         <button class="btn-export" id="exportCsv">📥 CSV 다운로드</button>
       </div>
 
-      <!-- Sort Bar -->
-      <div class="sort-bar hidden" id="sortBar">
+      <!-- Format Filter + Sort Bar -->
+      <div class="filter-sort-bar hidden" id="sortBar">
+        <div class="format-filter">
+          <button class="format-btn active" data-format="all">전체</button>
+          <button class="format-btn" data-format="shorts">⚡ 쇼츠</button>
+          <button class="format-btn" data-format="long">🎬 롱폼</button>
+        </div>
+        <div class="format-counts" id="formatCounts"></div>
+        <div class="sort-divider"></div>
         <div class="sort-buttons">
           <button class="sort-btn active" data-sort="growth">🔥 떡상지수순</button>
           <button class="sort-btn" data-sort="views">👁 조회수순</button>

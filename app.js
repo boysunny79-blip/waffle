@@ -9,13 +9,14 @@ const state = {
   videos: [],
   sort: 'growth',
   asc: false,
+  format: 'all', // 'all' | 'shorts' | 'long'
   query: '',
   recent: JSON.parse(localStorage.getItem('yt_recent') || '[]'),
 };
 
 // ====== Init ======
 document.addEventListener('DOMContentLoaded', () => {
-  if (state.apiKey) { hideModal(); updateApiDot(true); }
+  if (state.apiKey) { hideModal(); updateApiDot(true); loadTrending(); }
   renderRecent();
   bindAll();
 });
@@ -106,6 +107,74 @@ function parseDuration(iso) {
   return h ? `${h}${min.padStart(2, '0')}:${sec}` : `${min}:${sec}`;
 }
 
+function durationToSec(iso) {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || '0') * 3600) + (parseInt(m[2] || '0') * 60) + parseInt(m[3] || '0');
+}
+
+// ====== Trending Videos ======
+async function loadTrending() {
+  try {
+    const data = await yt('videos', {
+      part: 'snippet,statistics',
+      chart: 'mostPopular',
+      regionCode: 'KR',
+      maxResults: '15',
+    });
+    const items = data.items || [];
+    renderTrending(items);
+  } catch (e) {
+    console.log('Trending load failed:', e.message);
+  }
+}
+
+function renderTrending(items) {
+  const section = $('trendingSection');
+  if (!items.length) {
+    section.innerHTML = '<p class="empty-state">불러올 수 없습니다</p>';
+    return;
+  }
+
+  // Extract keywords from trending video titles
+  section.innerHTML = items.map((v, i) => {
+    const title = v.snippet.title;
+    const views = parseInt(v.statistics.viewCount || '0');
+    // Extract a short keyword from title (first meaningful phrase)
+    const keyword = extractKeyword(title);
+    return `
+      <div class="trending-item" data-q="${esc(keyword)}">
+        <span class="trending-num ${i < 3 ? 'top' : ''}">${i + 1}</span>
+        <span class="trending-text">${esc(keyword)}</span>
+        <span class="trending-views">${fmtNum(views)}회</span>
+      </div>
+    `;
+  }).join('');
+
+  section.querySelectorAll('.trending-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const q = item.dataset.q;
+      $('searchInput').value = q;
+      doSearch(q);
+    });
+  });
+}
+
+function extractKeyword(title) {
+  // Clean up common patterns: remove brackets content, trim
+  let clean = title
+    .replace(/\[.*?\]/g, '')
+    .replace(/【.*?】/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/#\S+/g, '')
+    .replace(/\|.*$/, '')
+    .replace(/-.*$/, '')
+    .trim();
+  // Take first ~25 chars for a short keyword
+  if (clean.length > 25) clean = clean.slice(0, 25).trim();
+  return clean || title.slice(0, 20);
+}
+
 // ====== Date Formatter ======
 function relativeDate(iso) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -149,6 +218,8 @@ async function doSearch(q) {
       const likes = parseInt(v.statistics.likeCount || '0');
       const comments = parseInt(v.statistics.commentCount || '0');
       const ch = chMap[v.snippet.channelId] || { name: '?', subs: 0, hidden: true };
+      const rawDur = v.contentDetails?.duration || '';
+      const sec = durationToSec(rawDur);
       return {
         id: v.id, title: v.snippet.title,
         channel: ch.name, channelId: v.snippet.channelId,
@@ -157,7 +228,9 @@ async function doSearch(q) {
         subs: ch.subs, subsHidden: ch.hidden,
         growth: ch.subs > 0 ? (views / ch.subs) * 100 : 0,
         date: v.snippet.publishedAt,
-        duration: parseDuration(v.contentDetails?.duration || ''),
+        duration: parseDuration(rawDur),
+        durationSec: sec,
+        isShorts: sec > 0 && sec <= 60,
       };
     });
 
@@ -258,7 +331,18 @@ function renderStats() {
 
 // ====== Cards ======
 function renderCards() {
-  const sorted = [...state.videos].sort((a, b) => {
+  // Filter by format
+  let filtered = [...state.videos];
+  if (state.format === 'shorts') filtered = filtered.filter(v => v.isShorts);
+  if (state.format === 'long') filtered = filtered.filter(v => !v.isShorts);
+
+  // Update format counts
+  const shortsCount = state.videos.filter(v => v.isShorts).length;
+  const longCount = state.videos.filter(v => !v.isShorts).length;
+  $('formatCounts').textContent = `쇼츠 ${shortsCount}개 / 롱폼 ${longCount}개`;
+
+  // Sort
+  filtered.sort((a, b) => {
     let va, vb;
     switch (state.sort) {
       case 'growth': va = a.growth; vb = b.growth; break;
@@ -270,17 +354,30 @@ function renderCards() {
     return state.asc ? va - vb : vb - va;
   });
 
-  $('videoGrid').innerHTML = sorted.map((v, i) => {
+  if (!filtered.length) {
+    $('videoGrid').innerHTML = `
+      <div class="empty-results">
+        <div class="empty-icon">${state.format === 'shorts' ? '⚡' : '🎬'}</div>
+        <p>${state.format === 'shorts' ? '쇼츠 영상이 없습니다' : '롱폼 영상이 없습니다'}</p>
+      </div>`;
+    return;
+  }
+
+  $('videoGrid').innerHTML = filtered.map((v, i) => {
     const gc = growthClass(v.growth);
     const gl = growthLabel(v.growth);
-    const url = `https://www.youtube.com/watch?v=${v.id}`;
+    const url = v.isShorts
+      ? `https://www.youtube.com/shorts/${v.id}`
+      : `https://www.youtube.com/watch?v=${v.id}`;
     const isTop = i < 3 && state.sort === 'growth' && !state.asc;
     const rank = isTop ? `<div class="card-rank">${i + 1}</div>` : '';
+    const shortsBadge = v.isShorts ? `<div class="shorts-badge">SHORTS</div>` : '';
 
     return `
       <div class="video-card ${isTop ? 'top-rank' : ''}">
         <div class="card-thumbnail" onclick="window.open('${url}','_blank')">
           ${rank}
+          ${shortsBadge}
           <img src="${v.thumb}" alt="" loading="lazy" onerror="this.style.display='none'">
           <div class="growth-badge ${gc}">${gl} (${fmtGrowth(v.growth)}%)</div>
           ${v.duration ? `<div class="card-duration">${v.duration}</div>` : ''}
@@ -291,6 +388,7 @@ function renderCards() {
             <span>${esc(v.channel)}</span>
             <span class="dot">●</span>
             <span>${relativeDate(v.date)}</span>
+            ${v.isShorts ? '<span class="dot">●</span><span style="color:var(--red)">Shorts</span>' : ''}
           </div>
           <div class="card-stats-row">
             <div class="stat-item"><span class="stat-label">조회수</span><span class="stat-value">${fmtNum(v.views)}회</span></div>
@@ -315,14 +413,16 @@ function renderCards() {
 function exportCsv() {
   if (!state.videos.length) return toast('내보낼 데이터가 없습니다', true);
 
-  const header = '제목,채널,조회수,구독자,좋아요,댓글,떡상지수(%),업로드일,URL';
+  const header = '제목,채널,형식,조회수,구독자,좋아요,댓글,떡상지수(%),길이(초),업로드일,URL';
   const rows = [...state.videos]
     .sort((a, b) => b.growth - a.growth)
     .map(v => [
       `"${v.title.replace(/"/g, '""')}"`,
       `"${v.channel}"`,
+      v.isShorts ? '쇼츠' : '롱폼',
       v.views, v.subs, v.likes, v.comments,
       v.growth.toFixed(2),
+      v.durationSec,
       v.date.slice(0, 10),
       `https://www.youtube.com/watch?v=${v.id}`
     ].join(','));
@@ -406,6 +506,7 @@ function bindAll() {
     localStorage.setItem('yt_api_key', k);
     hideModal(); updateApiDot(true);
     toast('API 키 저장 완료!');
+    loadTrending();
   });
   $('apiKeyInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('saveApiKey').click(); });
   $('openSettings').addEventListener('click', showModal);
@@ -413,6 +514,16 @@ function bindAll() {
   // Search
   $('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(e.target.value.trim()); });
   $('searchBtn').addEventListener('click', () => doSearch($('searchInput').value.trim()));
+
+  // Format filter
+  document.querySelectorAll('.format-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.format-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      state.format = b.dataset.format;
+      if (state.videos.length) renderCards();
+    });
+  });
 
   // Sort
   document.querySelectorAll('.sort-btn').forEach(b => {
