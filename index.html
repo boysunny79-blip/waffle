@@ -19,9 +19,7 @@
         <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="modal-link">Google Cloud Console</a>에서 발급받을 수 있습니다.
       </p>
       <input type="text" id="apiKeyInput" class="modal-input" placeholder="AIzaSy...">
-      <div class="modal-buttons">
-        <button class="btn-modal-save" id="saveApiKey">저장 후 시작</button>
-      </div>
+      <button class="btn-modal-save" id="saveApiKey">저장 후 시작</button>
       <p class="modal-note">* API 키는 브라우저 로컬스토리지에만 저장됩니다.</p>
     </div>
   </div>
@@ -33,7 +31,7 @@
   </div>
 
   <div class="app">
-    <!-- Left Sidebar -->
+    <!-- Sidebar: Recent Searches -->
     <aside class="sidebar">
       <div class="sidebar-logo">
         <span class="logo-icon">📊</span>
@@ -43,65 +41,10 @@
         <span class="api-dot disconnected"></span>
         <span class="api-label">API 미연결</span>
       </div>
-      <nav class="sidebar-nav">
-        <div class="nav-section-title">최근 검색</div>
-        <ul id="recentSearches">
-          <li class="nav-item empty-state">
-            <span class="nav-label">검색 기록 없음</span>
-          </li>
-        </ul>
-        <div class="nav-section-title" style="margin-top:12px">카테고리</div>
-        <ul id="categoryList">
-          <li class="nav-item active" data-category="">
-            <span class="nav-number">1</span>
-            <span class="nav-label">전체</span>
-          </li>
-          <li class="nav-item" data-category="1">
-            <span class="nav-number">2</span>
-            <span class="nav-label">영화/애니</span>
-          </li>
-          <li class="nav-item" data-category="10">
-            <span class="nav-number">3</span>
-            <span class="nav-label">음악</span>
-          </li>
-          <li class="nav-item" data-category="17">
-            <span class="nav-number">4</span>
-            <span class="nav-label">스포츠</span>
-          </li>
-          <li class="nav-item" data-category="20">
-            <span class="nav-number">5</span>
-            <span class="nav-label">게임</span>
-          </li>
-          <li class="nav-item" data-category="22">
-            <span class="nav-number">6</span>
-            <span class="nav-label">인물/블로그</span>
-          </li>
-          <li class="nav-item" data-category="23">
-            <span class="nav-number">7</span>
-            <span class="nav-label">코미디</span>
-          </li>
-          <li class="nav-item" data-category="24">
-            <span class="nav-number">8</span>
-            <span class="nav-label">엔터테인먼트</span>
-          </li>
-          <li class="nav-item" data-category="25">
-            <span class="nav-number">9</span>
-            <span class="nav-label">뉴스/정치</span>
-          </li>
-          <li class="nav-item" data-category="26">
-            <span class="nav-number">10</span>
-            <span class="nav-label">노하우/스타일</span>
-          </li>
-          <li class="nav-item" data-category="27">
-            <span class="nav-number">11</span>
-            <span class="nav-label">교육</span>
-          </li>
-          <li class="nav-item" data-category="28">
-            <span class="nav-number">12</span>
-            <span class="nav-label">과학기술</span>
-          </li>
-        </ul>
-      </nav>
+      <div class="nav-section-title">최근 검색</div>
+      <ul id="recentSearches" class="recent-list">
+        <li class="empty-state">검색 기록 없음</li>
+      </ul>
       <div class="sidebar-footer">
         <button class="btn-settings" id="openSettings">⚙️ API 설정</button>
       </div>
@@ -117,79 +60,60 @@
           </svg>
           <input type="text" id="searchInput" placeholder="키워드를 입력하세요 (Enter로 검색)">
         </div>
-        <select id="maxResults" class="select-max">
-          <option value="10">10개</option>
-          <option value="25" selected>25개</option>
-          <option value="50">50개</option>
-        </select>
-        <button class="btn-deep-search" id="deepSearchBtn">
-          <span class="pulse-dot"></span>
-          Deep Search (Max 200)
-        </button>
+        <button class="btn-search" id="searchBtn">검색</button>
       </div>
 
-      <div class="content-wrap">
-        <!-- Left Panel: Keyword Variations -->
-        <div class="keyword-panel" id="keywordPanel">
-          <div class="keyword-empty">
-            <p>🔍 키워드를 검색하면<br>관련 키워드가 여기에 표시됩니다</p>
-          </div>
+      <!-- Related Keywords Bar -->
+      <div class="keyword-bar hidden" id="keywordBar">
+        <span class="keyword-bar-label">연관 키워드</span>
+        <div class="keyword-chips" id="keywordChips"></div>
+      </div>
+
+      <!-- Stats Summary -->
+      <div class="stats-summary hidden" id="statsSummary">
+        <div class="summary-item">
+          <span class="summary-value" id="totalResults">0</span>
+          <span class="summary-label">검색 결과</span>
         </div>
+        <div class="summary-item">
+          <span class="summary-value accent-red" id="avgGrowth">0%</span>
+          <span class="summary-label">평균 떡상 지수</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-value" id="totalViews">0</span>
+          <span class="summary-label">총 조회수</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-value" id="topGrowthName">-</span>
+          <span class="summary-label">🏆 떡상 1위</span>
+        </div>
+        <div class="summary-spacer"></div>
+        <button class="btn-export" id="exportCsv">📥 CSV 다운로드</button>
+      </div>
 
-        <!-- Right Panel: Video Results -->
-        <div class="results-panel">
-          <!-- Sort Bar -->
-          <div class="sort-bar">
-            <span class="sort-label">결과 내 재정렬:</span>
-            <div class="sort-buttons">
-              <button class="sort-btn active" data-sort="growth">
-                <span class="sort-icon">🔥</span> 떡상지수순
-              </button>
-              <button class="sort-btn" data-sort="views">
-                <span class="sort-icon">👁</span> 조회수순
-              </button>
-              <button class="sort-btn" data-sort="subs">
-                <span class="sort-icon">👥</span> 구독자순
-              </button>
-              <button class="sort-btn" data-sort="date">
-                <span class="sort-icon">🕐</span> 최신순
-              </button>
-            </div>
-            <button class="btn-descending" id="orderBtn">
-              <span>▼</span> 내림차순
-            </button>
-          </div>
+      <!-- Sort Bar -->
+      <div class="sort-bar hidden" id="sortBar">
+        <div class="sort-buttons">
+          <button class="sort-btn active" data-sort="growth">🔥 떡상지수순</button>
+          <button class="sort-btn" data-sort="views">👁 조회수순</button>
+          <button class="sort-btn" data-sort="subs">👥 구독자순</button>
+          <button class="sort-btn" data-sort="date">🕐 최신순</button>
+        </div>
+        <button class="btn-order" id="orderBtn">▼ 내림차순</button>
+      </div>
 
-          <!-- Stats Summary -->
-          <div class="stats-summary" id="statsSummary" style="display:none">
-            <div class="summary-item">
-              <span class="summary-label">검색 결과</span>
-              <span class="summary-value" id="totalResults">0</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">평균 떡상 지수</span>
-              <span class="summary-value" id="avgGrowth">0%</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">총 조회수</span>
-              <span class="summary-value" id="totalViews">0</span>
-            </div>
-          </div>
-
-          <!-- Video Cards Grid -->
-          <div class="video-grid" id="videoGrid">
-            <div class="empty-results">
-              <div class="empty-icon">🎬</div>
-              <p>키워드를 검색하면 영상 분석 결과가 표시됩니다</p>
-            </div>
-          </div>
+      <!-- Video Cards Grid -->
+      <div class="video-grid" id="videoGrid">
+        <div class="empty-results">
+          <div class="empty-icon">🎬</div>
+          <p>키워드를 검색하면<br>영상 분석 결과가 표시됩니다</p>
         </div>
       </div>
     </main>
   </div>
 
-  <!-- Toast notification -->
-  <div class="toast" id="toast">복사되었습니다!</div>
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
 
   <script src="app.js"></script>
 </body>
